@@ -8,25 +8,22 @@
 # @stephencwelch
 
 
-## ----------------------- Part 1 ---------------------------- ##
 import numpy as np
+from scipy import optimize, io
+from pylab import imshow
+from matplotlib import pyplot as plt
+import matplotlib.cm as cm
+import random
 
-# X = (hours sleeping, hours studying), y = Score on test
-#X = np.array(([3,5], [5,1], [10,2]), dtype=float)
-#y = np.array(([75], [82], [93]), dtype=float)
 
-# Normalize
-#X = X/np.amax(X, axis=0)
-#y = y/100 #Max test score is 100
 
-## ----------------------- Part 5 ---------------------------- ##
 
 class Neural_Network(object):
 	def __init__(self, Lambda=0):        
 		#Define Hyperparameters
-		self.inputLayerSize = 2
-		self.outputLayerSize = 1
-		self.hiddenLayerSize = 25
+		self.inputLayerSize = 400
+		self.outputLayerSize = 4
+		self.hiddenLayerSize = 8
 
 		#Weights (parameters)
 		self.W1 = np.random.randn(self.inputLayerSize,self.hiddenLayerSize)
@@ -113,18 +110,19 @@ class Neural_Network(object):
 
 		return numgrad 
 
-## ----------------------- Part 6 ---------------------------- ##
-from scipy import optimize
 
 
 class trainer(object):
+	TrainCount=0
 	def __init__(self, N):
 		#Make Local reference to network:
 		self.N = N
 
 	def callbackF(self, weights):
-		self.N.unrollWeights(weights)
-		self.J.append(self.N.costFunction(self.X, self.y))   
+		#self.N.unrollWeights(weights)
+		#self.J.append(self.N.costFunction(self.X, self.y))   
+		print self.TrainCount
+		trainer.TrainCount +=1
 
 	def costFunctionWrapper(self, weights, X, y):
 		self.N.unrollWeights(weights)
@@ -135,11 +133,11 @@ class trainer(object):
 
 	def train(self, trainX, trainY, testX, testY):
 		#Make an internal variable for the callback function:
-		self.X = trainX
-		self.y = trainY
+		#self.X = trainX
+		#self.y = trainY
 
-		self.testX = testX
-		self.testY = testY
+		#self.testX = testX
+		#self.testY = testY
 
 		#Make empty list to store training costs:
 		self.J = []
@@ -147,7 +145,7 @@ class trainer(object):
 
 		weights = self.N.rollWeights()
 
-		options = {'maxiter': 200, 'disp' : True}
+		options = {'maxiter': 20, 'disp' : True}
 		_res = optimize.minimize(self.costFunctionWrapper, weights, jac=True, method='BFGS',  args=(trainX, trainY), options=options, callback=self.callbackF)
 
 		self.N.unrollWeights(_res.x)
@@ -155,36 +153,100 @@ class trainer(object):
 		return self.N.W1,self.N.W2
 
 
+def run():
+	#Training Data:
+	trainX = np.array(([3,5], [5,1], [10,2], [6,1.5]), dtype=float)
+	trainY = np.array(([75], [82], [93], [70]), dtype=float)
+
+	#Testing Data:
+	testX = np.array(([4, 5.5], [4.5,1], [9,2.5], [6, 2]), dtype=float)
+	testY = np.array(([70], [89], [85], [75]), dtype=float)
+
+	#Normalize:
+	trainX = trainX/np.amax(trainX, axis=0)
+	trainY = trainY/100 #Max test score is 100
+
+	#Normalize by max of training data:
+	testX = testX/np.amax(trainX, axis=0)
+	testY = testY/100 #Max test score is 100
 
 
 
-#Training Data:
-trainX = np.array(([3,5], [5,1], [10,2], [6,1.5]), dtype=float)
-trainY = np.array(([75], [82], [93], [70]), dtype=float)
+	#Train network with new data:
+	NN = Neural_Network(Lambda=0.01)
+	T = trainer(NN)
+	trainedWeights = T.train(trainX, trainY, testX, testY)
+	#print trainedWeights
 
-#Testing Data:
-testX = np.array(([4, 5.5], [4.5,1], [9,2.5], [6, 2]), dtype=float)
-testY = np.array(([70], [89], [85], [75]), dtype=float)
-
-#Normalize:
-trainX = trainX/np.amax(trainX, axis=0)
-trainY = trainY/100 #Max test score is 100
-
-#Normalize by max of training data:
-testX = testX/np.amax(trainX, axis=0)
-testY = testY/100 #Max test score is 100
+	NN.W1 = trainedWeights[0]
+	NN.W2 = trainedWeights[1]
+	yhat = NN.forward(np.array( ([6,8]), dtype=float   ))
+	print yhat
 
 
+class DigitRec(object):
+	
+	def __init__(self):
+		self.test=1	
+	
 
-#Train network with new data:
-NN = Neural_Network(Lambda=0.01)
+	def plotData(self, c):
+		img = self.X[c,:]
+		imgdata = img.reshape(20,20).T
+		print self.y[c][0]
+		plt.imshow(imgdata, interpolation='nearest', cmap = cm.Greys_r)
+		plt.show()
+	
 
-T = trainer(NN)
-trainedWeights = T.train(trainX, trainY, testX, testY)
-#print trainedWeights
+	def loadData(self):
+		print "loading the data"
+		filePath = "/home/halil/root/machine-learning/andrew-ng-coursera/machine-learning-ex4/ex4/ex4data1.mat"
+		data  = io.loadmat(filePath)
+		self.X = data [ 'X' ]
+		self.X = self.X[0:2000,]
+		self.y = data [ 'y' ]
+		self.y = self.y[0:2000]
+		self.y[self.y==10]=0
+		self.y = self.kbasedNumber(self.y)
+		#numOfLabels = np.unique(self.y).size
+		#print numOfLabels
 
-NN.W1 = trainedWeights[0]
-NN.W2 = trainedWeights[1]
+	def kbasedNumber(self,y):
+		m,n = y.shape
+		classes = np.unique(y).size
+		y_ = np.zeros((m,classes))
 
-yhat = NN.forward(np.array( ([6,8]), dtype=float   ))
-print yhat
+		for i in range(0, m):
+			y_[i, y[i]] = 1
+		return y_
+
+	def run(self):
+		self.loadData()
+		idxs = [ x for x in range(0,self.X.shape[0])]
+		random.seed(99)
+		random.shuffle(idxs)
+		cutoff = int(len(idxs) * 0.7)
+		trainX = np.array([self.X[i] for i in idxs[0:cutoff]])
+		trainY = np.array([self.y[i] for i in idxs[0:cutoff]])
+		testX = np.array([self.X[i] for i in idxs[cutoff:]])
+		testY = np.array([self.y[i] for i in idxs[cutoff:]])
+
+		print trainX.shape
+		print trainY.shape
+		NN = Neural_Network(Lambda=0.01)
+		T = trainer(NN)
+		trainedWeights = T.train(trainX, trainY, testX, testY)
+
+		NN.W1 = trainedWeights[0]
+		NN.W2 = trainedWeights[1]
+		yhat = NN.forward(np.array( (testX[0]), dtype=float   ))
+		print yhat
+		print "cutoff:" + str(idxs[cutoff])
+		print testY[0]
+		#print self.y[1002]
+		#self.plotData(1102)
+		#print self.kbasedNumber(self.y)[1502]
+
+
+#run()
+DigitRec().run()
